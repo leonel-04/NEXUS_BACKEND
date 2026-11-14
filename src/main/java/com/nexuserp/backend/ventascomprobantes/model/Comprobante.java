@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 public class Comprobante {
 
     private Long id;
+    private Long ventaId;
     private String numeroComprobante;
     private String tipo;
     private String cliente;
@@ -14,15 +15,19 @@ public class Comprobante {
     private double subtotal;
     private double igv;
     private double total;
+    private String estado;
 
     public Comprobante() {
     }
 
-    public Comprobante(Long id, String numeroComprobante, String tipo,
+    public Comprobante(Long id, Long ventaId,
+                       String numeroComprobante, String tipo,
                        String cliente, String numeroDocumento,
                        LocalDateTime fecha, double subtotal,
                        double igv, double total) {
+
         this.id = id;
+        this.ventaId = ventaId;
         this.numeroComprobante = numeroComprobante;
         this.tipo = tipo;
         this.cliente = cliente;
@@ -31,6 +36,7 @@ public class Comprobante {
         this.subtotal = subtotal;
         this.igv = igv;
         this.total = total;
+        this.estado = "EMITIDO";
     }
 
     public Long getId() {
@@ -39,6 +45,14 @@ public class Comprobante {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Long getVentaId() {
+        return ventaId;
+    }
+
+    public void setVentaId(Long ventaId) {
+        this.ventaId = ventaId;
     }
 
     public String getNumeroComprobante() {
@@ -103,5 +117,13 @@ public class Comprobante {
 
     public void setTotal(double total) {
         this.total = total;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
+        this.estado = estado;
     }
 }

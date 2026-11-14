@@ -3,26 +3,51 @@ package com.nexuserp.backend.productoscategorias.dto;
 
 public class CategoriaDTO {
 
-    private int id;
+    private Integer id;
     private String nombre;
     private String descripcion;
-    private boolean activo;
+    private Boolean activo;
 
-    public CategoriaDTO(int id, String nombre,
-                        String descripcion, boolean activo) {
+    public CategoriaDTO() {
+    }
 
+    public CategoriaDTO(Integer id, String nombre,
+                        String descripcion, Boolean activo) {
         this.id = id;
         this.nombre = nombre;
         this.descripcion = descripcion;
         this.activo = activo;
     }
 
-    public int getId() { return id; }
-    public String getNombre() { return nombre; }
-    public String getDescripcion() { return descripcion; }
-    public boolean isActivo() { return activo; }
+    public Integer getId() {
+        return id;
+    }
 
-    public void setNombre(String nombre) { this.nombre = nombre; }
-    public void setDescripcion(String descripcion) { this.descripcion = descripcion; }
-    public void setActivo(boolean activo) { this.activo = activo; }
+    public String getNombre() {
+        return nombre;
+    }
+
+    public String getDescripcion() {
+        return descripcion;
+    }
+
+    public Boolean isActivo() {
+        return activo;
+    }
+
+    public void setId(Integer id) {
+        this.id = id;
+    }
+
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
+
+    public void setDescripcion(String descripcion) {
+        this.descripcion = descripcion;
+    }
+
+    public void setActivo(Boolean activo) {
+        this.activo = activo;
+    }
 }

@@ -22,19 +22,23 @@ public class Venta {
     public Venta(Long id, String numeroVenta, String cliente,
                  LocalDateTime fecha, List<DetalleVenta> detalles,
                  String estado) {
+
         this.id = id;
         this.numeroVenta = numeroVenta;
         this.cliente = cliente;
         this.fecha = fecha;
         this.detalles = detalles;
         this.estado = estado;
+
         calcularTotales();
     }
 
     public void calcularTotales() {
+
         subtotal = 0;
 
         if (detalles != null) {
+
             for (DetalleVenta detalle : detalles) {
                 subtotal += detalle.getSubtotal();
             }

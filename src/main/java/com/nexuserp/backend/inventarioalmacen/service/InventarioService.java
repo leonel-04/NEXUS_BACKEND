@@ -1,71 +1,71 @@
 
 package com.nexuserp.backend.inventarioalmacen.service;
 
-import com.nexuserp.backend.inventarioalmacen.model.Inventario;
-import com.nexuserp.backend.inventarioalmacen.model.MovimientoInventario;
 import com.nexuserp.backend.inventarioalmacen.dto.InventarioDTO;
 import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
+import com.nexuserp.backend.inventarioalmacen.model.MovimientoInventario;
+import com.nexuserp.backend.inventarioalmacen.repository.MovimientoInventarioRepository;
+import com.nexuserp.backend.productoscategorias.model.Producto;
+import com.nexuserp.backend.productoscategorias.repository.ProductoRepository;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class InventarioService {
 
-    private final List<Inventario> inventarios = new ArrayList<>();
-    private final List<MovimientoInventario> movimientos = new ArrayList<>();
+    private final ProductoRepository productoRepository;
+    private final MovimientoInventarioRepository movimientoRepository;
 
-    private int siguienteIdMovimiento = 1;
-
-    public InventarioService() {
-
-        inventarios.add(new Inventario(1, "PROD-001", "Teclado", 30, 5));
-        inventarios.add(new Inventario(2, "PROD-002", "Mouse", 50, 10));
-        inventarios.add(new Inventario(3, "PROD-003", "Monitor", 4, 5));
+    public InventarioService(ProductoRepository productoRepository,
+                             MovimientoInventarioRepository movimientoRepository) {
+        this.productoRepository = productoRepository;
+        this.movimientoRepository = movimientoRepository;
     }
 
     public List<InventarioDTO> listarInventario() {
 
-        List<InventarioDTO> resultado = new ArrayList<>();
-
-        for (Inventario inventario : inventarios) {
-
-            resultado.add(convertirDTO(inventario));
-        }
-
-        return resultado;
+        return productoRepository.findAll().stream()
+                .filter(producto -> Boolean.TRUE.equals(producto.getActivo()))
+                .map(this::convertirDTO)
+                .toList();
     }
 
     public List<InventarioDTO> listarStockBajo() {
 
-        List<InventarioDTO> resultado = new ArrayList<>();
-
-        for (Inventario inventario : inventarios) {
-
-            if (inventario.isStockBajo()) {
-                resultado.add(convertirDTO(inventario));
-            }
-        }
-
-        return resultado;
+        return productoRepository.findAll().stream()
+                .filter(producto -> Boolean.TRUE.equals(producto.getActivo()))
+                .filter(producto -> producto.getStock() <= producto.getStockMinimo())
+                .map(this::convertirDTO)
+                .toList();
     }
 
     public List<MovimientoInventario> listarMovimientos() {
-        return movimientos;
+        return movimientoRepository.findAll();
     }
 
+    @Transactional
     public boolean registrarMovimiento(MovimientoInventarioDTO dto) {
 
-        Inventario inventario = buscarPorCodigo(dto.getCodigoProducto());
-
-        if (inventario == null || dto.getCantidad() <= 0
-                || dto.getTipo() == null) {
+        if (dto == null || dto.getCodigoProducto() == null
+                || dto.getCantidad() <= 0 || dto.getTipo() == null) {
             return false;
         }
 
-        String tipo = dto.getTipo().toUpperCase();
+        Producto producto = productoRepository.findAll().stream()
+                .filter(actual -> actual.getCodigo().equalsIgnoreCase(
+                        dto.getCodigoProducto().trim()))
+                .filter(actual -> Boolean.TRUE.equals(actual.getActivo()))
+                .findFirst()
+                .orElse(null);
+
+        if (producto == null) {
+            return false;
+        }
+
+        String tipo = dto.getTipo().trim().toUpperCase();
 
         if (!tipo.equals("ENTRADA")
                 && !tipo.equals("SALIDA")
@@ -73,56 +73,64 @@ public class InventarioService {
             return false;
         }
 
-        if (tipo.equals("SALIDA")
-                && inventario.getStock() < dto.getCantidad()) {
+        int stockActual = producto.getStock() == null ? 0 : producto.getStock();
+
+        if (tipo.equals("SALIDA") && stockActual < dto.getCantidad()) {
             return false;
         }
 
         if (tipo.equals("ENTRADA")) {
-            inventario.setStock(inventario.getStock() + dto.getCantidad());
+            producto.setStock(stockActual + dto.getCantidad());
         }
 
         if (tipo.equals("SALIDA")) {
-            inventario.setStock(inventario.getStock() - dto.getCantidad());
+            producto.setStock(stockActual - dto.getCantidad());
         }
 
         if (tipo.equals("AJUSTE")) {
-            inventario.setStock(dto.getCantidad());
+            producto.setStock(dto.getCantidad());
         }
 
-        movimientos.add(new MovimientoInventario(
-                siguienteIdMovimiento++,
-                inventario.getCodigoProducto(),
-                inventario.getNombreProducto(),
+        productoRepository.save(producto);
+
+        MovimientoInventario movimiento = new MovimientoInventario(
+                producto.getCodigo(),
+                producto.getNombre(),
                 tipo,
                 dto.getCantidad(),
                 dto.getMotivo()
-        ));
+        );
+
+        movimientoRepository.save(movimiento);
 
         return true;
     }
 
-    private Inventario buscarPorCodigo(String codigo) {
+    public boolean devolverStock(String codigoProducto, int cantidad, String motivo) {
 
-        for (Inventario inventario : inventarios) {
+        MovimientoInventarioDTO movimiento = new MovimientoInventarioDTO();
 
-            if (inventario.getCodigoProducto().equalsIgnoreCase(codigo)) {
-                return inventario;
-            }
-        }
+        movimiento.setCodigoProducto(codigoProducto);
+        movimiento.setTipo("ENTRADA");
+        movimiento.setCantidad(cantidad);
+        movimiento.setMotivo(motivo);
 
-        return null;
+        return registrarMovimiento(movimiento);
     }
 
-    private InventarioDTO convertirDTO(Inventario inventario) {
+    private InventarioDTO convertirDTO(Producto producto) {
+
+        int stock = producto.getStock() == null ? 0 : producto.getStock();
+        int stockMinimo = producto.getStockMinimo() == null
+                ? 0 : producto.getStockMinimo();
 
         return new InventarioDTO(
-                inventario.getId(),
-                inventario.getCodigoProducto(),
-                inventario.getNombreProducto(),
-                inventario.getStock(),
-                inventario.getStockMinimo(),
-                inventario.isStockBajo()
+                producto.getId(),
+                producto.getCodigo(),
+                producto.getNombre(),
+                stock,
+                stockMinimo,
+                stock <= stockMinimo
         );
     }
 }

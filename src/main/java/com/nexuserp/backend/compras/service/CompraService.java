@@ -7,6 +7,7 @@ import com.nexuserp.backend.compras.model.Compra;
 import com.nexuserp.backend.compras.model.DetalleCompra;
 import com.nexuserp.backend.inventarioalmacen.service.InventarioService;
 import org.springframework.stereotype.Service;
+import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -79,16 +80,25 @@ public class CompraService {
                 "REGISTRADA"
         );
 
-        // Registrar las entradas de productos en el inventario.
+// Registrar las entradas de productos en el inventario.
         for (DetalleCompra detalle : detalles) {
-            inventarioService.registrarMovimiento(
-                    detalle.getCodigoProducto(),
-                    "ENTRADA",
-                    detalle.getCantidad(),
-                    "Compra " + compra.getNumeroCompra()
-            );
-        }
 
+            MovimientoInventarioDTO movimiento = new MovimientoInventarioDTO();
+
+            movimiento.setCodigoProducto(detalle.getCodigoProducto());
+            movimiento.setTipo("ENTRADA");
+            movimiento.setCantidad(detalle.getCantidad());
+            movimiento.setMotivo("Compra " + compra.getNumeroCompra());
+
+            boolean registrado = inventarioService.registrarMovimiento(movimiento);
+
+            if (!registrado) {
+                throw new IllegalArgumentException(
+                        "No se pudo registrar la entrada del producto: "
+                                + detalle.getCodigoProducto()
+                );
+            }
+        }
         compras.add(compra);
         siguienteId++;
 

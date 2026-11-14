@@ -29,6 +29,13 @@ public class CategoriaController {
         return categoriaService.registrarCategoria(categoria);
     }
 
+    @PutMapping("/{id}")
+    public CategoriaDTO modificarCategoria(
+            @PathVariable int id,
+            @RequestBody CategoriaDTO categoria) {
+        return categoriaService.modificarCategoria(id, categoria);
+    }
+
     @DeleteMapping("/{id}")
     public String eliminarCategoria(@PathVariable int id) {
 

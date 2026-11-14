@@ -19,21 +19,34 @@ public class ProductoController {
         this.productoService = productoService;
     }
 
+    // Listar productos
     @GetMapping
     public List<ProductoDTO> listarProductos() {
         return productoService.listarProductos();
     }
 
+    // Buscar producto por ID
     @GetMapping("/{id}")
     public ProductoDTO buscarProducto(@PathVariable int id) {
         return productoService.buscarProducto(id);
     }
 
+    // Registrar producto
     @PostMapping
     public ProductoDTO registrarProducto(@RequestBody ProductoDTO producto) {
         return productoService.registrarProducto(producto);
     }
 
+    // Modificar producto
+    @PutMapping("/{id}")
+    public ProductoDTO modificarProducto(
+            @PathVariable int id,
+            @RequestBody ProductoDTO producto) {
+
+        return productoService.modificarProducto(id, producto);
+    }
+
+    // Eliminar producto (desactivacion)
     @DeleteMapping("/{id}")
     public String eliminarProducto(@PathVariable int id) {
 

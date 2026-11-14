@@ -2,58 +2,127 @@
 package com.nexuserp.backend.productoscategorias.service;
 
 import com.nexuserp.backend.productoscategorias.dto.CategoriaDTO;
+import com.nexuserp.backend.productoscategorias.model.Categoria;
+import com.nexuserp.backend.productoscategorias.repository.CategoriaRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class CategoriaService {
 
-    private final List<CategoriaDTO> categorias = new ArrayList<>();
+    private final CategoriaRepository categoriaRepository;
 
-    private int siguienteId = 4;
-
-    public CategoriaService() {
-
-        categorias.add(new CategoriaDTO(
-                1, "Perifericos", "Accesorios de computadora", true));
-
-        categorias.add(new CategoriaDTO(
-                2, "Monitores", "Pantallas y monitores", true));
-
-        categorias.add(new CategoriaDTO(
-                3, "Componentes", "Componentes de computadora", true));
+    public CategoriaService(CategoriaRepository categoriaRepository) {
+        this.categoriaRepository = categoriaRepository;
     }
 
+    // Registrar categorías iniciales si la tabla está vacía
+    @PostConstruct
+    public void cargarCategoriasIniciales() {
+
+        if (categoriaRepository.count() == 0) {
+
+            registrarCategoriaInicial(
+                    "Perifericos",
+                    "Accesorios de computadora"
+            );
+
+            registrarCategoriaInicial(
+                    "Monitores",
+                    "Pantallas y monitores"
+            );
+
+            registrarCategoriaInicial(
+                    "Componentes",
+                    "Componentes de computadora"
+            );
+        }
+    }
+
+    // Guardar categorías iniciales
+    private void registrarCategoriaInicial(
+            String nombre,
+            String descripcion) {
+
+        Categoria categoria = new Categoria();
+
+        categoria.setNombre(nombre);
+        categoria.setDescripcion(descripcion);
+        categoria.setActivo(true);
+
+        categoriaRepository.save(categoria);
+    }
+
+    // Listar categorías
     public List<CategoriaDTO> listarCategorias() {
-        return categorias;
+
+        return categoriaRepository.findAll()
+                .stream()
+                .map(this::convertirADTO)
+                .toList();
     }
 
-    public CategoriaDTO registrarCategoria(CategoriaDTO categoria) {
+    // Registrar categoría
+    public CategoriaDTO registrarCategoria(CategoriaDTO datos) {
 
-        CategoriaDTO nuevaCategoria = new CategoriaDTO(
-                siguienteId++,
-                categoria.getNombre(),
-                categoria.getDescripcion(),
-                true
-        );
+        Categoria categoria = new Categoria();
 
-        categorias.add(nuevaCategoria);
+        categoria.setNombre(datos.getNombre());
+        categoria.setDescripcion(datos.getDescripcion());
+        categoria.setActivo(true);
 
-        return nuevaCategoria;
+        categoria = categoriaRepository.save(categoria);
+
+        return convertirADTO(categoria);
     }
 
-    public boolean eliminarCategoria(int id) {
+    // Modificar categoría
+    public CategoriaDTO modificarCategoria(int id, CategoriaDTO datos) {
 
-        for (CategoriaDTO categoria : categorias) {
+        Categoria categoria = categoriaRepository.findById(id)
+                .orElse(null);
 
-            if (categoria.getId() == id) {
-                categoria.setActivo(false);
-                return true;
-            }
+        if (categoria == null ||
+                !Boolean.TRUE.equals(categoria.getActivo())) {
+            return null;
         }
 
-        return false;
+        categoria.setNombre(datos.getNombre());
+        categoria.setDescripcion(datos.getDescripcion());
+
+        categoria = categoriaRepository.save(categoria);
+
+        return convertirADTO(categoria);
+    }
+
+    // Eliminar categoría (desactivación lógica)
+    public boolean eliminarCategoria(int id) {
+
+        Categoria categoria = categoriaRepository.findById(id)
+                .orElse(null);
+
+        if (categoria == null ||
+                !Boolean.TRUE.equals(categoria.getActivo())) {
+            return false;
+        }
+
+        categoria.setActivo(false);
+
+        categoriaRepository.save(categoria);
+
+        return true;
+    }
+
+    // Convertir entidad a DTO
+    private CategoriaDTO convertirADTO(Categoria categoria) {
+
+        return new CategoriaDTO(
+                categoria.getId(),
+                categoria.getNombre(),
+                categoria.getDescripcion(),
+                categoria.getActivo()
+        );
     }
 }

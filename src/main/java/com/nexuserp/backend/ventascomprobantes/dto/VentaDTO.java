@@ -5,12 +5,21 @@ import java.util.List;
 
 public class VentaDTO {
 
+    private String idSolicitud;
     private String cliente;
     private String tipoComprobante;
     private String numeroDocumento;
     private List<DetalleVentaDTO> detalles;
 
     public VentaDTO() {
+    }
+
+    public String getIdSolicitud() {
+        return idSolicitud;
+    }
+
+    public void setIdSolicitud(String idSolicitud) {
+        this.idSolicitud = idSolicitud;
     }
 
     public String getCliente() {
