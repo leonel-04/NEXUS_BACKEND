@@ -5,9 +5,11 @@ import com.nexuserp.backend.compras.dto.CompraDTO;
 import com.nexuserp.backend.compras.dto.DetalleCompraDTO;
 import com.nexuserp.backend.compras.model.Compra;
 import com.nexuserp.backend.compras.model.DetalleCompra;
+import com.nexuserp.backend.compras.repository.CompraRepository;
+import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
 import com.nexuserp.backend.inventarioalmacen.service.InventarioService;
 import org.springframework.stereotype.Service;
-import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -16,27 +18,29 @@ import java.util.List;
 @Service
 public class CompraService {
 
-    private final List<Compra> compras = new ArrayList<>();
+    private final CompraRepository compraRepository;
     private final InventarioService inventarioService;
 
-    private Long siguienteId = 1L;
-
-    public CompraService(InventarioService inventarioService) {
+    public CompraService(CompraRepository compraRepository,
+                         InventarioService inventarioService) {
+        this.compraRepository = compraRepository;
         this.inventarioService = inventarioService;
     }
 
     public List<Compra> listarCompras() {
-        return compras;
+        return compraRepository.findAll();
     }
 
     public Compra buscarCompra(Long id) {
-        return compras.stream()
-                .filter(compra -> compra.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+        return compraRepository.findById(id).orElse(null);
     }
 
+    @Transactional
     public Compra registrarCompra(CompraDTO datos) {
+
+        if (datos == null) {
+            throw new IllegalArgumentException("Debe proporcionar los datos de la compra.");
+        }
 
         if (datos.getProveedor() == null || datos.getProveedor().isBlank()) {
             throw new IllegalArgumentException("Debe indicar el proveedor.");
@@ -57,11 +61,13 @@ public class CompraService {
 
             if (detalleDTO.getCantidad() <= 0 ||
                     detalleDTO.getPrecioUnitario() <= 0) {
-                throw new IllegalArgumentException("La cantidad y el precio deben ser mayores a cero.");
+                throw new IllegalArgumentException(
+                        "La cantidad y el precio deben ser mayores a cero."
+                );
             }
 
             DetalleCompra detalle = new DetalleCompra(
-                    (long) (detalles.size() + 1),
+                    null,
                     detalleDTO.getCodigoProducto(),
                     obtenerNombreProducto(detalleDTO.getCodigoProducto()),
                     detalleDTO.getCantidad(),
@@ -72,15 +78,14 @@ public class CompraService {
         }
 
         Compra compra = new Compra(
-                siguienteId,
-                "COMP-" + String.format("%04d", siguienteId),
+                null,
+                generarNumeroCompra(),
                 datos.getProveedor(),
                 LocalDateTime.now(),
                 detalles,
                 "REGISTRADA"
         );
 
-// Registrar las entradas de productos en el inventario.
         for (DetalleCompra detalle : detalles) {
 
             MovimientoInventarioDTO movimiento = new MovimientoInventarioDTO();
@@ -88,8 +93,7 @@ public class CompraService {
             movimiento.setCodigoProducto(detalle.getCodigoProducto());
             movimiento.setTipo("ENTRADA");
             movimiento.setCantidad(detalle.getCantidad());
-            movimiento.setMotivo("Compra " + compra.getNumeroCompra());
-
+            movimiento.setMotivo("Compra de mercadería");
             boolean registrado = inventarioService.registrarMovimiento(movimiento);
 
             if (!registrado) {
@@ -98,21 +102,31 @@ public class CompraService {
                                 + detalle.getCodigoProducto()
                 );
             }
-        }
-        compras.add(compra);
-        siguienteId++;
 
-        return compra;
+            detalle.setCompra(compra);
+        }
+
+        return compraRepository.save(compra);
+    }
+
+    private String generarNumeroCompra() {
+
+        Long siguienteNumero = compraRepository.obtenerSiguienteNumeroCompra();
+
+        return String.format("COMP-%04d", siguienteNumero);
     }
 
     private String obtenerNombreProducto(String codigoProducto) {
 
         return inventarioService.listarInventario().stream()
-                .filter(producto -> producto.getCodigoProducto().equals(codigoProducto))
+                .filter(producto -> producto.getCodigoProducto()
+                        .equalsIgnoreCase(codigoProducto.trim()))
                 .map(producto -> producto.getNombreProducto())
                 .findFirst()
                 .orElseThrow(() ->
-                        new IllegalArgumentException("El producto no existe en el inventario.")
+                        new IllegalArgumentException(
+                                "El producto no existe en el inventario."
+                        )
                 );
     }
 }

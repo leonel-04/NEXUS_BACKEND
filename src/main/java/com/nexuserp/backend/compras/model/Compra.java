@@ -1,17 +1,38 @@
 
 package com.nexuserp.backend.compras.model;
 
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Entity
+@Table(name = "compras")
 public class Compra {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false, unique = true, length = 20)
     private String numeroCompra;
+
+    @Column(nullable = false, length = 150)
     private String proveedor;
+
+    @Column(nullable = false)
     private LocalDateTime fecha;
+
+    @OneToMany(
+            mappedBy = "compra",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<DetalleCompra> detalles;
+
+    @Column(nullable = false)
     private double total;
+
+    @Column(nullable = false, length = 30)
     private String estado;
 
     public Compra() {
@@ -82,6 +103,10 @@ public class Compra {
 
     public double getTotal() {
         return total;
+    }
+
+    public void setTotal(double total) {
+        this.total = total;
     }
 
     public String getEstado() {
