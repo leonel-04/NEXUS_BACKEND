@@ -1,13 +1,23 @@
 
 package com.nexuserp.backend.ventascomprobantes.model;
 
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
+@Entity
+@Table(name = "comprobantes")
 public class Comprobante {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(nullable = false)
     private Long ventaId;
+
+    @Column(unique = true, nullable = false, length = 30)
     private String numeroComprobante;
+
     private String tipo;
     private String cliente;
     private String numeroDocumento;

@@ -1,9 +1,22 @@
 
 package com.nexuserp.backend.ventascomprobantes.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import jakarta.persistence.*;
+
+@Entity
+@Table(name = "detalles_venta")
 public class DetalleVenta {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "venta_id", nullable = false)
+    @JsonIgnore
+    private Venta venta;
+
     private String codigoProducto;
     private String nombreProducto;
     private int cantidad;
@@ -29,6 +42,14 @@ public class DetalleVenta {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public Venta getVenta() {
+        return venta;
+    }
+
+    public void setVenta(Venta venta) {
+        this.venta = venta;
     }
 
     public String getCodigoProducto() {

@@ -40,6 +40,9 @@ public class ReporteService {
 
         List<Venta> ventas = ventaService.listarVentas()
                 .stream()
+                .filter(venta ->
+                        "REGISTRADA".equals(venta.getEstado())
+                )
                 .filter(venta -> {
                     LocalDate fecha = venta.getFecha().toLocalDate();
 
@@ -77,9 +80,11 @@ public class ReporteService {
 
         List<Compra> compras = compraService.listarCompras()
                 .stream()
+                .filter(compra ->
+                        "REGISTRADA".equals(compra.getEstado())
+                )
                 .filter(compra -> {
                     LocalDate fecha = compra.getFecha().toLocalDate();
-
                     return !fecha.isBefore(fechaInicio)
                             && !fecha.isAfter(fechaFin);
                 })

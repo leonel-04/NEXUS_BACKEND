@@ -1,19 +1,37 @@
 
 package com.nexuserp.backend.ventascomprobantes.model;
 
+import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
 
+@Entity
+@Table(name = "ventas")
 public class Venta {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Column(unique = true, nullable = false, length = 20)
     private String numeroVenta;
+
+    @Column(unique = true, length = 100)
+    private String idSolicitud;
+
+    @Column(nullable = false)
     private String cliente;
+
     private LocalDateTime fecha;
+
+    @OneToMany(mappedBy = "venta", cascade = CascadeType.ALL,
+            orphanRemoval = true)
     private List<DetalleVenta> detalles;
+
     private double subtotal;
     private double igv;
     private double total;
+
     private String estado;
 
     public Venta() {
@@ -38,7 +56,6 @@ public class Venta {
         subtotal = 0;
 
         if (detalles != null) {
-
             for (DetalleVenta detalle : detalles) {
                 subtotal += detalle.getSubtotal();
             }
@@ -48,64 +65,31 @@ public class Venta {
         total = subtotal + igv;
     }
 
-    public Long getId() {
-        return id;
-    }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
-    public void setId(Long id) {
-        this.id = id;
-    }
+    public String getNumeroVenta() { return numeroVenta; }
+    public void setNumeroVenta(String numeroVenta) { this.numeroVenta = numeroVenta; }
 
-    public String getNumeroVenta() {
-        return numeroVenta;
-    }
+    public String getIdSolicitud() { return idSolicitud; }
+    public void setIdSolicitud(String idSolicitud) { this.idSolicitud = idSolicitud; }
 
-    public void setNumeroVenta(String numeroVenta) {
-        this.numeroVenta = numeroVenta;
-    }
+    public String getCliente() { return cliente; }
+    public void setCliente(String cliente) { this.cliente = cliente; }
 
-    public String getCliente() {
-        return cliente;
-    }
+    public LocalDateTime getFecha() { return fecha; }
+    public void setFecha(LocalDateTime fecha) { this.fecha = fecha; }
 
-    public void setCliente(String cliente) {
-        this.cliente = cliente;
-    }
-
-    public LocalDateTime getFecha() {
-        return fecha;
-    }
-
-    public void setFecha(LocalDateTime fecha) {
-        this.fecha = fecha;
-    }
-
-    public List<DetalleVenta> getDetalles() {
-        return detalles;
-    }
-
+    public List<DetalleVenta> getDetalles() { return detalles; }
     public void setDetalles(List<DetalleVenta> detalles) {
         this.detalles = detalles;
         calcularTotales();
     }
 
-    public double getSubtotal() {
-        return subtotal;
-    }
+    public double getSubtotal() { return subtotal; }
+    public double getIgv() { return igv; }
+    public double getTotal() { return total; }
 
-    public double getIgv() {
-        return igv;
-    }
-
-    public double getTotal() {
-        return total;
-    }
-
-    public String getEstado() {
-        return estado;
-    }
-
-    public void setEstado(String estado) {
-        this.estado = estado;
-    }
+    public String getEstado() { return estado; }
+    public void setEstado(String estado) { this.estado = estado; }
 }

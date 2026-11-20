@@ -3,36 +3,37 @@ package com.nexuserp.backend.ventascomprobantes.service;
 
 import com.nexuserp.backend.ventascomprobantes.model.Comprobante;
 import com.nexuserp.backend.ventascomprobantes.model.Venta;
-
+import com.nexuserp.backend.ventascomprobantes.repository.ComprobanteRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class ComprobanteService {
 
-    private final List<Comprobante> comprobantes = new ArrayList<>();
+    private final ComprobanteRepository comprobanteRepository;
 
-    private Long siguienteId = 1L;
+    public ComprobanteService(ComprobanteRepository comprobanteRepository) {
+        this.comprobanteRepository = comprobanteRepository;
+    }
 
     public List<Comprobante> listarComprobantes() {
-        return comprobantes;
+        return comprobanteRepository.findAll();
     }
 
     public Comprobante buscarPorVentaId(Long ventaId) {
-
-        return comprobantes.stream()
-                .filter(comprobante ->
-                        comprobante.getVentaId().equals(ventaId))
-                .findFirst()
-                .orElse(null);
+        return comprobanteRepository.findByVentaId(ventaId);
     }
 
+    @Transactional
     public Comprobante registrarComprobante(
             Venta venta,
             String tipo,
             String numeroDocumento) {
+
+        Long siguienteId =
+                comprobanteRepository.obtenerSiguienteNumeroComprobante();
 
         String numero = String.format("%06d", siguienteId);
 
@@ -40,7 +41,7 @@ public class ComprobanteService {
                 ? "F001-" : "B001-";
 
         Comprobante comprobante = new Comprobante(
-                siguienteId,
+                null,
                 venta.getId(),
                 prefijo + numero,
                 tipo.toUpperCase(),
@@ -52,12 +53,10 @@ public class ComprobanteService {
                 venta.getTotal()
         );
 
-        comprobantes.add(comprobante);
-        siguienteId++;
-
-        return comprobante;
+        return comprobanteRepository.save(comprobante);
     }
 
+    @Transactional
     public boolean anularComprobantePorVenta(Long ventaId) {
 
         Comprobante comprobante = buscarPorVentaId(ventaId);
@@ -71,6 +70,8 @@ public class ComprobanteService {
         }
 
         comprobante.setEstado("ANULADO");
+
+        comprobanteRepository.save(comprobante);
 
         return true;
     }

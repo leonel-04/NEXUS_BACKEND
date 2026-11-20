@@ -1,198 +1,212 @@
 
 package com.nexuserp.backend.ventascomprobantes.service;
 
-import com.nexuserp.backend.inventarioalmacen.dto.InventarioDTO;
-import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
-import com.nexuserp.backend.inventarioalmacen.service.InventarioService;
 import com.nexuserp.backend.ventascomprobantes.dto.DetalleVentaDTO;
 import com.nexuserp.backend.ventascomprobantes.dto.VentaDTO;
 import com.nexuserp.backend.ventascomprobantes.model.Comprobante;
 import com.nexuserp.backend.ventascomprobantes.model.DetalleVenta;
 import com.nexuserp.backend.ventascomprobantes.model.Venta;
+import com.nexuserp.backend.ventascomprobantes.repository.VentaRepository;
+
+import com.nexuserp.backend.inventarioalmacen.dto.InventarioDTO;
+import com.nexuserp.backend.inventarioalmacen.dto.MovimientoInventarioDTO;
+import com.nexuserp.backend.inventarioalmacen.service.InventarioService;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 @Service
 public class VentaService {
 
-    private final List<Venta> ventas = new ArrayList<>();
-
-    private final Map<String, Venta> solicitudesProcesadas = new HashMap<>();
-
+    private final VentaRepository ventaRepository;
     private final InventarioService inventarioService;
     private final ComprobanteService comprobanteService;
 
-    private Long siguienteId = 1L;
+    public VentaService(VentaRepository ventaRepository,
+                        InventarioService inventarioService,
+                        ComprobanteService comprobanteService) {
 
-    public VentaService(
-            InventarioService inventarioService,
-            ComprobanteService comprobanteService) {
-
+        this.ventaRepository = ventaRepository;
         this.inventarioService = inventarioService;
         this.comprobanteService = comprobanteService;
     }
 
     public List<Venta> listarVentas() {
-        return ventas;
+        return ventaRepository.findAll();
     }
 
     public Venta buscarVenta(Long id) {
-
-        return ventas.stream()
-                .filter(venta -> venta.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+        return ventaRepository.findById(id).orElse(null);
     }
 
-    public synchronized Venta registrarVenta(VentaDTO datos) {
+    @Transactional
+    public Venta registrarVenta(VentaDTO datos) {
 
-        if (datos.getIdSolicitud() == null ||
-                datos.getIdSolicitud().isBlank()) {
+        if (datos == null || datos.getIdSolicitud() == null
+                || datos.getIdSolicitud().trim().isEmpty()) {
             throw new IllegalArgumentException(
-                    "La solicitud de venta debe tener un identificador.");
+                    "El identificador de solicitud es obligatorio.");
         }
 
         String idSolicitud = datos.getIdSolicitud().trim();
 
-        // Comprobamos si esta solicitud ya fue procesada.
-        Venta ventaExistente = solicitudesProcesadas.get(idSolicitud);
+        Venta ventaExistente = ventaRepository
+                .findByIdSolicitud(idSolicitud)
+                .orElse(null);
 
         if (ventaExistente != null) {
             return ventaExistente;
         }
 
-        if (datos.getCliente() == null || datos.getCliente().isBlank()) {
-            throw new IllegalArgumentException("Debe indicar el cliente.");
+        if (datos.getCliente() == null
+                || datos.getCliente().trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "El cliente es obligatorio.");
         }
 
-        if (datos.getNumeroDocumento() == null ||
-                datos.getNumeroDocumento().isBlank()) {
+        if (datos.getNumeroDocumento() == null
+                || datos.getNumeroDocumento().trim().isEmpty()) {
             throw new IllegalArgumentException(
-                    "Debe indicar el número de documento del cliente.");
+                    "El número de documento es obligatorio.");
         }
 
-        if (datos.getTipoComprobante() == null ||
-                (!datos.getTipoComprobante().equalsIgnoreCase("BOLETA")
-                        && !datos.getTipoComprobante().equalsIgnoreCase("FACTURA"))) {
+        if (datos.getTipoComprobante() == null
+                || (!datos.getTipoComprobante().equalsIgnoreCase("BOLETA")
+                && !datos.getTipoComprobante().equalsIgnoreCase("FACTURA"))) {
             throw new IllegalArgumentException(
-                    "El comprobante debe ser BOLETA o FACTURA.");
+                    "El tipo de comprobante debe ser BOLETA o FACTURA.");
         }
 
         if (datos.getDetalles() == null || datos.getDetalles().isEmpty()) {
-            throw new IllegalArgumentException("La venta debe tener productos.");
+            throw new IllegalArgumentException(
+                    "La venta debe contener al menos un producto.");
         }
 
+        List<InventarioDTO> inventario = inventarioService.listarInventario();
+
         List<DetalleVenta> detalles = new ArrayList<>();
-        Set<String> codigosRegistrados = new HashSet<>();
+        Set<String> codigosProductos = new HashSet<>();
 
-        // Validamos todos los productos antes de descontar el stock.
-        for (DetalleVentaDTO detalleDTO : datos.getDetalles()) {
+        for (DetalleVentaDTO dato : datos.getDetalles()) {
 
-            if (detalleDTO.getCodigoProducto() == null ||
-                    detalleDTO.getCodigoProducto().isBlank()) {
+            if (dato.getCodigoProducto() == null
+                    || dato.getCodigoProducto().trim().isEmpty()) {
                 throw new IllegalArgumentException(
-                        "Debe indicar el código del producto.");
+                        "El código del producto es obligatorio.");
             }
 
-            if (!codigosRegistrados.add(
-                    detalleDTO.getCodigoProducto().toUpperCase())) {
+            String codigo = dato.getCodigoProducto().trim();
+
+            if (!codigosProductos.add(codigo.toUpperCase())) {
                 throw new IllegalArgumentException(
-                        "No repita el mismo producto en una venta.");
+                        "No se puede repetir un producto en la venta.");
             }
 
-            if (detalleDTO.getCantidad() <= 0 ||
-                    detalleDTO.getPrecioUnitario() <= 0) {
+            if (dato.getCantidad() <= 0) {
                 throw new IllegalArgumentException(
-                        "La cantidad y el precio deben ser mayores a cero.");
+                        "La cantidad debe ser mayor que cero.");
             }
 
-            InventarioDTO producto = inventarioService.listarInventario().stream()
-                    .filter(item -> item.getCodigoProducto()
-                            .equalsIgnoreCase(detalleDTO.getCodigoProducto()))
+            if (dato.getPrecioUnitario() <= 0) {
+                throw new IllegalArgumentException(
+                        "El precio unitario debe ser mayor que cero.");
+            }
+
+            InventarioDTO producto = inventario.stream()
+                    .filter(actual -> actual.getCodigoProducto()
+                            .equalsIgnoreCase(codigo))
                     .findFirst()
-                    .orElseThrow(() ->
-                            new IllegalArgumentException(
-                                    "El producto no existe en el inventario.")
-                    );
+                    .orElse(null);
 
-            if (producto.getStock() < detalleDTO.getCantidad()) {
+            if (producto == null) {
+                throw new IllegalArgumentException(
+                        "El producto no existe en el inventario.");
+            }
+
+            if (producto.getStock() < dato.getCantidad()) {
                 throw new IllegalArgumentException(
                         "Stock insuficiente para el producto: "
                                 + producto.getNombreProducto());
             }
 
-            detalles.add(new DetalleVenta(
-                    (long) (detalles.size() + 1),
+            DetalleVenta detalle = new DetalleVenta(
+                    null,
                     producto.getCodigoProducto(),
                     producto.getNombreProducto(),
-                    detalleDTO.getCantidad(),
-                    detalleDTO.getPrecioUnitario()
-            ));
+                    dato.getCantidad(),
+                    dato.getPrecioUnitario()
+            );
+
+            detalles.add(detalle);
         }
 
+        Long siguienteId = ventaRepository.obtenerSiguienteNumeroVenta();
+
+        String numeroVenta = "VENT-" + String.format("%04d", siguienteId);
+
         Venta venta = new Venta(
-                siguienteId,
-                "VENT-" + String.format("%04d", siguienteId),
-                datos.getCliente(),
+                null,
+                numeroVenta,
+                datos.getCliente().trim(),
                 LocalDateTime.now(),
                 detalles,
                 "REGISTRADA"
         );
 
-        // Descontamos el stock.
+        venta.setIdSolicitud(idSolicitud);
+
+        for (DetalleVenta detalle : detalles) {
+            detalle.setVenta(venta);
+        }
+
+        venta.calcularTotales();
+
+        venta = ventaRepository.save(venta);
+
         for (DetalleVenta detalle : detalles) {
 
-            MovimientoInventarioDTO movimiento = new MovimientoInventarioDTO();
+            MovimientoInventarioDTO movimiento =
+                    new MovimientoInventarioDTO();
 
             movimiento.setCodigoProducto(detalle.getCodigoProducto());
             movimiento.setTipo("SALIDA");
             movimiento.setCantidad(detalle.getCantidad());
             movimiento.setMotivo("Venta " + venta.getNumeroVenta());
 
-            boolean registrado = inventarioService.registrarMovimiento(movimiento);
-
-            if (!registrado) {
+            if (!inventarioService.registrarMovimiento(movimiento)) {
                 throw new IllegalArgumentException(
                         "No se pudo descontar el stock del producto: "
-                                + detalle.getCodigoProducto());
+                                + detalle.getNombreProducto());
             }
         }
 
-        // Generamos el comprobante.
         comprobanteService.registrarComprobante(
                 venta,
                 datos.getTipoComprobante(),
-                datos.getNumeroDocumento()
+                datos.getNumeroDocumento().trim()
         );
-
-        // Guardamos la venta y su identificador de solicitud.
-        ventas.add(venta);
-        solicitudesProcesadas.put(idSolicitud, venta);
-
-        siguienteId++;
 
         return venta;
     }
 
-    // Anular una venta y devolver sus productos al inventario.
-    public synchronized boolean anularVenta(Long id) {
+    @Transactional
+    public boolean anularVenta(Long id) {
 
-        Venta venta = buscarVenta(id);
+        Venta venta = ventaRepository.findById(id).orElse(null);
 
         if (venta == null) {
             throw new IllegalArgumentException("Venta no encontrada.");
         }
 
         if ("ANULADA".equalsIgnoreCase(venta.getEstado())) {
-            throw new IllegalArgumentException("La venta ya está anulada.");
+            throw new IllegalArgumentException(
+                    "La venta ya se encuentra anulada.");
         }
 
         Comprobante comprobante =
@@ -205,10 +219,11 @@ public class VentaService {
 
         if ("ANULADO".equalsIgnoreCase(comprobante.getEstado())) {
             throw new IllegalArgumentException(
-                    "El comprobante de esta venta ya está anulado.");
+                    "El comprobante ya se encuentra anulado.");
         }
 
-        // Comprobamos todos los productos antes de devolver el stock.
+        List<InventarioDTO> inventario = inventarioService.listarInventario();
+
         for (DetalleVenta detalle : venta.getDetalles()) {
 
             if (detalle.getCantidad() <= 0) {
@@ -216,18 +231,17 @@ public class VentaService {
                         "La cantidad del producto no es válida.");
             }
 
-            boolean existe = inventarioService.listarInventario().stream()
-                    .anyMatch(item -> item.getCodigoProducto()
+            boolean productoExiste = inventario.stream()
+                    .anyMatch(actual -> actual.getCodigoProducto()
                             .equalsIgnoreCase(detalle.getCodigoProducto()));
 
-            if (!existe) {
+            if (!productoExiste) {
                 throw new IllegalArgumentException(
-                        "No se encontró el producto: "
+                        "El producto ya no existe en el inventario: "
                                 + detalle.getCodigoProducto());
             }
         }
 
-        // Devolvemos el stock.
         for (DetalleVenta detalle : venta.getDetalles()) {
 
             boolean devuelto = inventarioService.devolverStock(
@@ -238,21 +252,19 @@ public class VentaService {
 
             if (!devuelto) {
                 throw new IllegalArgumentException(
-                        "No se pudo devolver el producto: "
-                                + detalle.getCodigoProducto());
+                        "No se pudo devolver el stock del producto: "
+                                + detalle.getNombreProducto());
             }
         }
 
-        // Anulamos el comprobante.
-        boolean comprobanteAnulado =
-                comprobanteService.anularComprobantePorVenta(venta.getId());
-
-        if (!comprobanteAnulado) {
+        if (!comprobanteService.anularComprobantePorVenta(venta.getId())) {
             throw new IllegalArgumentException(
                     "No se pudo anular el comprobante.");
         }
 
         venta.setEstado("ANULADA");
+
+        ventaRepository.save(venta);
 
         return true;
     }
